@@ -370,6 +370,5 @@ class TradingBot:
         if self._is_running:
             self.logger.info("Stopping trading bot...")
             self._is_running = False
-            if self._thread:
-                self._thread.join() # Wait for the thread to finish
-            self.logger.info("Trading bot stopped.")
+            # self._thread.join() # Removing this blocking call
+            self.logger.info("Trading bot stop signal sent.")
