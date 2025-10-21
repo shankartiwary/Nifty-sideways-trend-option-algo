@@ -3,9 +3,10 @@ import time
 import traceback
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time as dt_time
 from typing import Dict
 import threading
+import pytz
 
 import numpy as np
 
@@ -345,12 +346,24 @@ class TradingBot:
             wave.start()
 
             while self._is_running:
-                price = self.broker.fut_ltp()
-                self.router.on_tick({"fut_ltp": price})
-                b = bar.add(price)
-                if b is not None:
-                    o, h, l, c = b
-                    self.router.on_bar(o, h, l, c)
+                ist = pytz.timezone('Asia/Kolkata')
+                now = datetime.now(ist)
+
+                is_weekday = now.weekday() < 5 # Monday is 0 and Sunday is 6
+                is_trading_hours = dt_time(9, 15) <= now.time() <= dt_time(15, 30)
+
+                if is_weekday and is_trading_hours:
+                    price = self.broker.fut_ltp()
+                    self.router.on_tick({"fut_ltp": price})
+                    b = bar.add(price)
+                    if b is not None:
+                        o, h, l, c = b
+                        self.router.on_bar(o, h, l, c)
+                else:
+                    self.logger.info("Outside trading hours. Sleeping for 1 minute...")
+                    time.sleep(60) # Sleep for a minute if outside trading hours
+                    continue
+
                 time.sleep(self.config['LTP_POLL_SEC'])
         except Exception as e:
             self.logger.error(f"[ERR] {e}")
