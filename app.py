@@ -131,4 +131,9 @@ if st.session_state.bot and st.session_state.bot._is_running:
 else:
     status_placeholder.warning("Bot is STOPPED.")
 
+import time
+
 log_area.text_area("Live Logs", "\n".join(log_messages), height=400)
+
+time.sleep(2)
+st.rerun()

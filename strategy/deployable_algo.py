@@ -325,7 +325,8 @@ class TradingBot:
                 client_code=self.config['CLIENT_CODE'],
                 password=self.config['PASSWORD'],
                 totp_secret=self.config['TOTP_SECRET'],
-                dry_run=self.config['DRY_RUN']
+                dry_run=self.config['DRY_RUN'],
+                logger=self.logger
             )
             self.broker.login()
             self.broker.underlying = self.config['UNDERLYING']

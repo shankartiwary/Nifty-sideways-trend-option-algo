@@ -10,7 +10,7 @@ except Exception:
     pyotp = None
 
 class AngelBroker:
-    def __init__(self, api_key, client_code, password, totp_secret, dry_run=True):
+    def __init__(self, api_key, client_code, password, totp_secret, dry_run=True, logger=None):
         self.api_key = api_key
         self.client_code = client_code
         self.password = password
@@ -20,11 +20,12 @@ class AngelBroker:
         self.session = {}
         self.underlying = ""
         self.expiry = ""
+        self.logger = logger or logging.getLogger(__name__)
 
 
     def login(self):
         if self.dry_run or SmartConnect is None:
-            print("[BROKER] DRY_RUN or SmartConnect not installed. Skipping Angel login.")
+            self.logger.info("[BROKER] DRY_RUN or SmartConnect not installed. Skipping Angel login.")
             return
         self.sc = SmartConnect(api_key=self.api_key)
         otp = pyotp.TOTP(self.totp_secret).now()
@@ -32,7 +33,7 @@ class AngelBroker:
         if "data" not in data:
             raise RuntimeError(f"Angel login failed: {data}")
         self.session = data["data"]
-        print("[BROKER] Logged in to Angel One.")
+        self.logger.info("[BROKER] Logged in to Angel One.")
 
     def now_hhmm(self) -> str:
         return datetime.now().strftime("%H:%M")
@@ -106,7 +107,7 @@ class AngelBroker:
         if self.dry_run:
             oid_s = f"SIM-S-C-{shortK}-{int(time.time())}"
             oid_l = f"SIM-B-C-{longK}-{int(time.time())}"
-            print(f"[DRY] SELL CALL SPR {short_sym} / BUY {long_sym}, lots={lots}")
+            self.logger.info(f"[DRY] SELL CALL SPR {short_sym} / BUY {long_sym}, lots={lots}")
             return oid_s, oid_l
         # TODO: Implement the logic to place a live sell call spread order using the Angel One API
         raise NotImplementedError("Implement placeOrder for call spread")
@@ -122,7 +123,7 @@ class AngelBroker:
         if self.dry_run:
             oid_s = f"SIM-S-P-{shortK}-{int(time.time())}"
             oid_l = f"SIM-B-P-{longK}-{int(time.time())}"
-            print(f"[DRY] SELL PUT SPR {short_sym} / BUY {long_sym}, lots={lots}")
+            self.logger.info(f"[DRY] SELL PUT SPR {short_sym} / BUY {long_sym}, lots={lots}")
             return oid_s, oid_l
         # TODO: Implement the logic to place a live sell put spread order using the Angel One API
         raise NotImplementedError("Implement placeOrder for put spread")
@@ -134,7 +135,7 @@ class AngelBroker:
         For live mode, this needs to be implemented using the broker's API.
         """
         if self.dry_run:
-            print(f"[DRY] CLOSE SPREAD short={oid_short} long={oid_long}")
+            self.logger.info(f"[DRY] CLOSE SPREAD short={oid_short} long={oid_long}")
             return
         # TODO: Implement the logic to close a live spread using the Angel One API
         raise NotImplementedError("Implement closing spread via reverse orders")
