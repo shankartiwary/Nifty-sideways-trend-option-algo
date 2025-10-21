@@ -132,5 +132,3 @@ else:
     status_placeholder.warning("Bot is STOPPED.")
 
 log_area.text_area("Live Logs", "\n".join(log_messages), height=400)
-
-st.rerun()
