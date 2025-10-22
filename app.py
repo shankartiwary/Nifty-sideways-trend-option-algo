@@ -48,6 +48,11 @@ st.title("Trading Bot Controller")
 # --- Connection Status Indicator ---
 status_indicator = st.empty()
 
+# --- Margin Ticker ---
+margin_col1, margin_col2 = st.columns(2)
+available_margin_ph = margin_col1.empty()
+used_margin_ph = margin_col2.empty()
+
 # --- Session State Initialization ---
 if 'bot' not in st.session_state:
     st.session_state.bot = None
@@ -63,6 +68,7 @@ with st.sidebar:
 
     with st.expander("API Credentials", expanded=True):
         api_key = st.text_input("API Key", "YOUR_API_KEY")
+        st.markdown('<a href="https://smartapi.angelbroking.com/my-apps" target="_blank" style="font-size: 0.8em;">How to get API Key?</a>', unsafe_allow_html=True)
         client_code = st.text_input("Client Code", "YOUR_CLIENT_CODE")
         password = st.text_input("Password", "YOUR_PASSWORD", type="password")
         totp_secret = st.text_input(
@@ -70,6 +76,7 @@ with st.sidebar:
             "YOUR_TOTP_SECRET",
             help="This is the Base32 secret key provided by Angel One when you set up 2FA with an authenticator app (like Google Authenticator)."
         )
+        st.markdown('<a href="https://smartapi.angelbroking.com/enable-totp" target="_blank" style="font-size: 0.8em;">How to get TOTP Secret?</a>', unsafe_allow_html=True)
 
     with st.expander("Trading Parameters", expanded=True):
         underlying = st.text_input("Underlying", "NIFTY")
@@ -138,11 +145,19 @@ if st.session_state.bot and st.session_state.bot._is_running:
     status_placeholder.success("Bot is RUNNING.")
     if st.session_state.bot.is_connected:
         status_indicator.markdown('<span style="color:green">●</span> Connected to Broker', unsafe_allow_html=True)
+        funds = st.session_state.bot.get_funds()
+        if funds:
+            available_margin_ph.metric("Available Margin", f"₹ {funds['available']:,.2f}")
+            used_margin_ph.metric("Used Margin", f"₹ {funds['used']:,.2f}")
     else:
         status_indicator.markdown('<span style="color:red">●</span> Disconnected from Broker', unsafe_allow_html=True)
+        available_margin_ph.metric("Available Margin", "₹ 0.00")
+        used_margin_ph.metric("Used Margin", "₹ 0.00")
 else:
     status_placeholder.warning("Bot is STOPPED.")
     status_indicator.markdown('<span style="color:red">●</span> Disconnected from Broker', unsafe_allow_html=True)
+    available_margin_ph.metric("Available Margin", "₹ 0.00")
+    used_margin_ph.metric("Used Margin", "₹ 0.00")
 
 
 import time

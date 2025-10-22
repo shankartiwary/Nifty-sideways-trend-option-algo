@@ -70,6 +70,29 @@ class AngelBroker:
     def is_connected(self) -> bool:
         return self.session and 'feedtoken' in self.session
 
+    def get_funds(self) -> Optional[Dict[str, float]]:
+        """Fetches available and used margin from the broker."""
+        if self.dry_run:
+            # Return dummy data for dry run
+            return {'available': 50000.0, 'used': 10000.0}
+
+        if not self.is_connected():
+            return None
+
+        try:
+            rms_data = self.sc.get_rms_limit()
+            if rms_data and rms_data.get('status') and rms_data.get('data'):
+                # Extracting relevant margin details. Adjust keys if necessary based on API response.
+                available_margin = float(rms_data['data'].get('availablecash', 0))
+                used_margin = float(rms_data['data'].get('marginused', 0))
+                return {'available': available_margin, 'used': used_margin}
+            else:
+                self.logger.error(f"Failed to fetch RMS data: {rms_data.get('message')}")
+                return None
+        except Exception as e:
+            self.logger.error(f"Exception while fetching funds: {e}")
+            return None
+
     def now_hhmm(self) -> str:
         return datetime.now().strftime("%H:%M")
 
@@ -175,5 +198,33 @@ class AngelBroker:
         if self.dry_run:
             self.logger.info(f"[DRY] CLOSE SPREAD short={oid_short} long={oid_long}")
             return
-        # TODO: Implement order cancellation or reverse trades
-        self.logger.warning("Live spread closing is not fully implemented.")
+
+        for oid in [oid_short, oid_long]:
+            order_details = self._get_order_details(oid)
+            if not order_details:
+                self.logger.error(f"Could not retrieve details for order {oid}. Cannot close position.")
+                continue
+
+            symbol = order_details['tradingsymbol']
+            token = self.get_token(symbol)
+            qty = int(order_details['quantity'])
+            tx_type = order_details['transactiontype']
+
+            # Reverse the transaction
+            reverse_tx_type = "BUY" if tx_type == "SELL" else "SELL"
+
+            self._place_order(symbol, token, reverse_tx_type, qty)
+
+    def _get_order_details(self, order_id: str) -> Optional[dict]:
+        """Fetches details of a specific order from the order book."""
+        try:
+            order_book = self.sc.orderBook()
+            if order_book and order_book.get('status') and order_book.get('data'):
+                for order in order_book['data']:
+                    if order.get('orderid') == order_id:
+                        return order
+            self.logger.warning(f"Order ID {order_id} not found in the order book.")
+            return None
+        except Exception as e:
+            self.logger.error(f"Exception while fetching order book: {e}")
+            return None

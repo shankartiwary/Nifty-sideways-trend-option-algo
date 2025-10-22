@@ -322,6 +322,11 @@ class TradingBot:
     def is_connected(self) -> bool:
         return self.broker is not None and self.broker.is_connected()
 
+    def get_funds(self):
+        if self.broker:
+            return self.broker.get_funds()
+        return None
+
     def _run_loop(self):
         try:
             self.broker = AngelBroker(
