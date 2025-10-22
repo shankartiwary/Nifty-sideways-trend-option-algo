@@ -317,7 +317,10 @@ class TradingBot:
         self._thread = None
         self.broker = None
         self.router = None
-        self.is_connected = False
+
+    @property
+    def is_connected(self) -> bool:
+        return self.broker is not None and self.broker.is_connected()
 
     def get_funds(self):
         if self.broker:
@@ -335,13 +338,6 @@ class TradingBot:
                 logger=self.logger
             )
             self.broker.login()
-            if self.broker.is_connected():
-                self.is_connected = True
-                self.logger.info("Connection status updated to CONNECTED.")
-            else:
-                self.logger.error("Broker login successful but connection check failed.")
-                self.is_connected = False
-
             self.broker.underlying = self.config['UNDERLYING']
             self.broker.expiry = self.config['EXPIRY']
 
@@ -385,7 +381,6 @@ class TradingBot:
         finally:
             self.logger.info("Trading loop stopped.")
             self._is_running = False
-            self.is_connected = False
 
     def start(self):
         if not self._is_running:
@@ -398,6 +393,5 @@ class TradingBot:
         if self._is_running:
             self.logger.info("Stopping trading bot...")
             self._is_running = False
-            self.is_connected = False
             # self._thread.join() # Removing this blocking call
             self.logger.info("Trading bot stop signal sent.")
