@@ -3,6 +3,7 @@ from strategy.deployable_algo import TradingBot, WaveCfg, SurvivorCfg
 import queue
 import logging
 import sys
+import pandas as pd
 
 # --- Helper for logging ---
 class QueueLogHandler(logging.Handler):
@@ -135,6 +136,11 @@ if col2.button("Stop Bot"):
 
 # --- Display Bot Status and Logs ---
 status_placeholder = st.empty()
+
+# --- Trade History ---
+st.subheader("Trade History")
+trade_history_placeholder = st.empty()
+
 log_area = st.empty()
 
 log_messages = []
@@ -149,6 +155,13 @@ if st.session_state.bot and st.session_state.bot._is_running:
         if funds:
             available_margin_ph.metric("Available Margin", f"₹ {funds['available']:,.2f}")
             used_margin_ph.metric("Used Margin", f"₹ {funds['used']:,.2f}")
+
+        if st.session_state.bot.trade_history:
+            df = pd.DataFrame(st.session_state.bot.trade_history)
+            trade_history_placeholder.dataframe(df)
+        else:
+            trade_history_placeholder.info("No trades have been attempted yet.")
+
     else:
         status_indicator.markdown('<span style="color:red">●</span> Disconnected from Broker', unsafe_allow_html=True)
         available_margin_ph.metric("Available Margin", "₹ 0.00")

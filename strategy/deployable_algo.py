@@ -148,21 +148,50 @@ class WaveExtractor:
 
 
 class OrderManager:
-    def __init__(self, broker: AngelBroker, logger):
+    def __init__(self, broker: AngelBroker, logger, trade_history):
         self.broker = broker
         self.logger = logger
         self._spreads: Dict[str, Dict] = {}
+        self.trade_history = trade_history
 
     def sell_call_spread(self, shortK, longK, lots):
         self.logger.info(f"OM: Selling CALL spread {shortK}/{longK}")
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        short_sym = f"{self.broker.underlying}{self.broker.expiry}{shortK}CE"
+        long_sym = f"{self.broker.underlying}{self.broker.expiry}{longK}CE"
+
         oid_s, oid_l = self.broker.sell_call_spread(shortK, longK, lots)
-        self._spreads[oid_s] = {"type": "CALL", "shortK": shortK, "longK": longK, "qty": lots, "peer": oid_l}
+
+        # Record short leg
+        status_s = f"Success ({oid_s})" if oid_s else "Failed"
+        self.trade_history.append({"timestamp": now, "symbol": short_sym, "type": "SELL", "qty": lots, "status": status_s})
+
+        # Record long leg
+        status_l = f"Success ({oid_l})" if oid_l else "Failed"
+        self.trade_history.append({"timestamp": now, "symbol": long_sym, "type": "BUY", "qty": lots, "status": status_l})
+
+        if oid_s:
+             self._spreads[oid_s] = {"type": "CALL", "shortK": shortK, "longK": longK, "qty": lots, "peer": oid_l}
         return oid_s, oid_l
 
     def sell_put_spread(self, shortK, longK, lots):
         self.logger.info(f"OM: Selling PUT spread {shortK}/{longK}")
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        short_sym = f"{self.broker.underlying}{self.broker.expiry}{shortK}PE"
+        long_sym = f"{self.broker.underlying}{self.broker.expiry}{longK}PE"
+
         oid_s, oid_l = self.broker.sell_put_spread(shortK, longK, lots)
-        self._spreads[oid_s] = {"type": "PUT", "shortK": shortK, "longK": longK, "qty": lots, "peer": oid_l}
+
+        # Record short leg
+        status_s = f"Success ({oid_s})" if oid_s else "Failed"
+        self.trade_history.append({"timestamp": now, "symbol": short_sym, "type": "SELL", "qty": lots, "status": status_s})
+
+        # Record long leg
+        status_l = f"Success ({oid_l})" if oid_l else "Failed"
+        self.trade_history.append({"timestamp": now, "symbol": long_sym, "type": "BUY", "qty": lots, "status": status_l})
+
+        if oid_s:
+            self._spreads[oid_s] = {"type": "PUT", "shortK": shortK, "longK": longK, "qty": lots, "peer": oid_l}
         return oid_s, oid_l
 
     def close_spread(self, oid_short, oid_long):
@@ -317,6 +346,7 @@ class TradingBot:
         self._thread = None
         self.broker = None
         self.router = None
+        self.trade_history = []
 
     @property
     def is_connected(self) -> bool:
@@ -341,7 +371,7 @@ class TradingBot:
             self.broker.underlying = self.config['UNDERLYING']
             self.broker.expiry = self.config['EXPIRY']
 
-            om = OrderManager(self.broker, self.logger)
+            om = OrderManager(self.broker, self.logger, self.trade_history)
             wave_cfg = WaveCfg(**self.config['WAVE_CFG'])
             surv_cfg = SurvivorCfg(**self.config['SURVIVOR_CFG'])
 
