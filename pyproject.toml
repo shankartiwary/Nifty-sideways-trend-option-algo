@@ -14,4 +14,6 @@ dependencies = [
     "pyyaml>=6.0.2",
     "ratelimit>=2.2.1",
     "requests>=2.31.0",
+    "smartapi-python>=1.0",
+    "pyotp>=2.9.0",
 ]
