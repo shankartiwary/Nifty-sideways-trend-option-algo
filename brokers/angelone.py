@@ -45,22 +45,19 @@ class AngelBroker:
         self._fetch_instrument_list()
 
     def _fetch_instrument_list(self):
-        """Downloads the full list of instruments and creates a symbol-to-token map."""
+        """Downloads the full list of instruments from a static URL and creates a symbol-to-token map."""
         try:
-            # The modern method is to get a URL and download the instrument list as a JSON file.
-            instrument_url = self.sc.get_instrument_list()
-            if instrument_url:
-                import requests
-                response = requests.get(instrument_url)
-                if response.status_code == 200:
-                    instrument_list = response.json()
-                    for instrument in instrument_list:
+            instrument_url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
+            import requests
+            response = requests.get(instrument_url)
+            if response.status_code == 200:
+                instrument_list = response.json()
+                for instrument in instrument_list:
+                    if 'symbol' in instrument and 'token' in instrument:
                         self.instrument_map[instrument['symbol']] = instrument['token']
-                    self.logger.info(f"Successfully downloaded and mapped {len(self.instrument_map)} instruments.")
-                else:
-                    self.logger.error(f"Failed to download instrument list. Status code: {response.status_code}")
+                self.logger.info(f"Successfully downloaded and mapped {len(self.instrument_map)} instruments.")
             else:
-                self.logger.error("Failed to get instrument list URL.")
+                self.logger.error(f"Failed to download instrument list. Status code: {response.status_code}")
         except Exception as e:
             self.logger.error(f"Error downloading instrument list: {e}")
 
