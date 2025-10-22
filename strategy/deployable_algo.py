@@ -160,14 +160,14 @@ class OrderManager:
         short_sym = f"{self.broker.underlying}{self.broker.expiry}{shortK}CE"
         long_sym = f"{self.broker.underlying}{self.broker.expiry}{longK}CE"
 
-        oid_s, oid_l = self.broker.sell_call_spread(shortK, longK, lots)
+        oid_s, msg_s, oid_l, msg_l = self.broker.sell_call_spread(shortK, longK, lots)
 
         # Record short leg
-        status_s = f"Success ({oid_s})" if oid_s else "Failed"
+        status_s = f"Success ({oid_s})" if oid_s else f"Failed ({msg_s})"
         self.trade_history.append({"timestamp": now, "symbol": short_sym, "type": "SELL", "qty": lots, "status": status_s})
 
         # Record long leg
-        status_l = f"Success ({oid_l})" if oid_l else "Failed"
+        status_l = f"Success ({oid_l})" if oid_l else f"Failed ({msg_l})"
         self.trade_history.append({"timestamp": now, "symbol": long_sym, "type": "BUY", "qty": lots, "status": status_l})
 
         if oid_s:
@@ -180,14 +180,14 @@ class OrderManager:
         short_sym = f"{self.broker.underlying}{self.broker.expiry}{shortK}PE"
         long_sym = f"{self.broker.underlying}{self.broker.expiry}{longK}PE"
 
-        oid_s, oid_l = self.broker.sell_put_spread(shortK, longK, lots)
+        oid_s, msg_s, oid_l, msg_l = self.broker.sell_put_spread(shortK, longK, lots)
 
         # Record short leg
-        status_s = f"Success ({oid_s})" if oid_s else "Failed"
+        status_s = f"Success ({oid_s})" if oid_s else f"Failed ({msg_s})"
         self.trade_history.append({"timestamp": now, "symbol": short_sym, "type": "SELL", "qty": lots, "status": status_s})
 
         # Record long leg
-        status_l = f"Success ({oid_l})" if oid_l else "Failed"
+        status_l = f"Success ({oid_l})" if oid_l else f"Failed ({msg_l})"
         self.trade_history.append({"timestamp": now, "symbol": long_sym, "type": "BUY", "qty": lots, "status": status_l})
 
         if oid_s:
@@ -356,6 +356,27 @@ class TradingBot:
         if self.broker:
             return self.broker.get_funds()
         return None
+
+    def fire_test_order(self):
+        if not self.is_connected:
+            self.logger.error("Cannot fire test order: Not connected to broker.")
+            return
+
+        self.logger.info("Firing a test order...")
+        try:
+            # Create a dummy far-OTM call spread to test
+            current_price = self.broker.fut_ltp()
+            if not current_price:
+                self.logger.error("Could not fetch current price to fire a test order.")
+                return
+
+            strike = round_to_nearest(current_price + 500, 50) # Far OTM
+            om = OrderManager(self.broker, self.logger, self.trade_history)
+            om.sell_call_spread(strike, strike + 100, 1)
+            self.logger.info("Test order sequence complete.")
+
+        except Exception as e:
+            self.logger.error(f"An exception occurred while firing test order: {e}")
 
     def _run_loop(self):
         try:

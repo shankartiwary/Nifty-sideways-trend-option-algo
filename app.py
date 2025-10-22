@@ -102,7 +102,7 @@ with st.sidebar:
         }
 
 # --- Main App Area ---
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 if col1.button("Start Bot"):
     if st.session_state.bot is None:
@@ -132,6 +132,13 @@ if col2.button("Stop Bot"):
         st.info("Bot stopped.")
     else:
         st.warning("Bot is not running.")
+
+if col3.button("Fire Test Order"):
+    if st.session_state.bot and st.session_state.bot.is_connected:
+        st.session_state.bot.fire_test_order()
+        st.success("Test order fired. Check the trade history below for the result.")
+    else:
+        st.warning("Bot must be running and connected to fire a test order.")
 
 
 # --- Display Bot Status and Logs ---

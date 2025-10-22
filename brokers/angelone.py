@@ -141,55 +141,70 @@ class AngelBroker:
             self.logger.error(f"Exception while fetching option LTP for {symbol}: {e}")
             return None
 
-    def _place_order(self, symbol: str, token: str, tx_type: str, qty: int) -> Optional[str]:
+    def _place_order(self, symbol: str, token: str, tx_type: str, qty: int) -> Tuple[Optional[str], str]:
+        """
+        Places an order and returns the order ID and a status message.
+        Returns (order_id, "Success") or (None, "Rejection Reason").
+        """
         try:
             params = {
                 "variety": "NORMAL", "tradingsymbol": symbol, "symboltoken": token,
                 "transactiontype": tx_type, "exchange": "NFO", "ordertype": "MARKET",
                 "producttype": "CARRYFORWARD", "duration": "DAY", "quantity": str(qty)
             }
-            order_id = self.sc.placeOrder(params)
-            self.logger.info(f"Placed {tx_type} order for {symbol}: {order_id}")
-            return order_id
-        except Exception as e:
-            self.logger.error(f"Failed to place {tx_type} order for {symbol}: {e}")
-            return None
+            response = self.sc.placeOrder(params)
 
-    def sell_call_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[str], Optional[str]]:
+            if response and response.get('status') and response.get('data', {}).get('orderid'):
+                order_id = response['data']['orderid']
+                self.logger.info(f"Placed {tx_type} order for {symbol}: {order_id}")
+                return order_id, "Success"
+            else:
+                error_message = response.get('message', 'Unknown error from API')
+                self.logger.error(f"Failed to place {tx_type} order for {symbol}. Reason: {error_message}")
+                return None, error_message
+
+        except Exception as e:
+            error_message = str(e)
+            self.logger.error(f"Failed to place {tx_type} order for {symbol}. Exception: {error_message}")
+            return None, error_message
+
+    def sell_call_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[str], str, Optional[str], str]:
         short_sym = f"{self.underlying}{self.expiry}{shortK}CE"
         long_sym = f"{self.underlying}{self.expiry}{longK}CE"
 
         if self.dry_run:
             self.logger.info(f"[DRY] SELL CALL SPR {short_sym} / BUY {long_sym}, lots={lots}")
-            return f"SIM-S-C-{shortK}", f"SIM-B-C-{longK}"
+            return f"SIM-S-C-{shortK}", "Dry Run", f"SIM-B-C-{longK}", "Dry Run"
 
         short_token, long_token = self.get_token(short_sym), self.get_token(long_sym)
         if not all([short_token, long_token]):
-            self.logger.error(f"Could not find tokens for call spread: {short_sym}, {long_sym}")
-            return None, None
+            msg = f"Could not find tokens for call spread: {short_sym}, {long_sym}"
+            self.logger.error(msg)
+            return None, msg, None, msg
 
         qty = lots * 50 # Assuming NIFTY lot size
-        oid_s = self._place_order(short_sym, short_token, "SELL", qty)
-        oid_l = self._place_order(long_sym, long_token, "BUY", qty)
-        return oid_s, oid_l
+        oid_s, msg_s = self._place_order(short_sym, short_token, "SELL", qty)
+        oid_l, msg_l = self._place_order(long_sym, long_token, "BUY", qty)
+        return oid_s, msg_s, oid_l, msg_l
 
-    def sell_put_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[str], Optional[str]]:
+    def sell_put_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[str], str, Optional[str], str]:
         short_sym = f"{self.underlying}{self.expiry}{shortK}PE"
         long_sym = f"{self.underlying}{self.expiry}{longK}PE"
 
         if self.dry_run:
             self.logger.info(f"[DRY] SELL PUT SPR {short_sym} / BUY {long_sym}, lots={lots}")
-            return f"SIM-S-P-{shortK}", f"SIM-B-P-{longK}"
+            return f"SIM-S-P-{shortK}", "Dry Run", f"SIM-B-P-{longK}", "Dry Run"
 
         short_token, long_token = self.get_token(short_sym), self.get_token(long_sym)
         if not all([short_token, long_token]):
-            self.logger.error(f"Could not find tokens for put spread: {short_sym}, {long_sym}")
-            return None, None
+            msg = f"Could not find tokens for put spread: {short_sym}, {long_sym}"
+            self.logger.error(msg)
+            return None, msg, None, msg
 
         qty = lots * 50
-        oid_s = self._place_order(short_sym, short_token, "SELL", qty)
-        oid_l = self._place_order(long_sym, long_token, "BUY", qty)
-        return oid_s, oid_l
+        oid_s, msg_s = self._place_order(short_sym, short_token, "SELL", qty)
+        oid_l, msg_l = self._place_order(long_sym, long_token, "BUY", qty)
+        return oid_s, msg_s, oid_l, msg_l
 
     def close_spread(self, oid_short: str, oid_long: str):
         if self.dry_run:
