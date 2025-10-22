@@ -193,7 +193,7 @@ class AngelBroker:
             self.logger.error(msg)
             return None, msg, None, msg
 
-        lot_size = int(short_instrument.get('lotSize', 25)) # Default to 25 if not found
+        lot_size = int(short_instrument.get('lotsize', 25)) # Default to 25 if not found
         qty = lots * lot_size
 
         short_token = short_instrument['token']
@@ -219,7 +219,7 @@ class AngelBroker:
             self.logger.error(msg)
             return None, msg, None, msg
 
-        lot_size = int(short_instrument.get('lotSize', 25)) # Default to 25
+        lot_size = int(short_instrument.get('lotsize', 25)) # Default to 25
         qty = lots * lot_size
 
         short_token = short_instrument['token']
