@@ -1,7 +1,0 @@
-streamlit
-smartapi-python>=1.0
-pyotp>=2.9.0
-numpy
-pandas
-pyyaml
-pytz

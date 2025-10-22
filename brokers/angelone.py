@@ -1,7 +1,7 @@
 from datetime import datetime
 import math
 import time
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 try:
     from SmartApi import SmartConnect
     import pyotp
