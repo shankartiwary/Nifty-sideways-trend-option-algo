@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+brokers/__init__.py
+brokers/angelone.py
+brokers/base.py
+nifty_sideways_trend_option_algo.egg-info/PKG-INFO
+nifty_sideways_trend_option_algo.egg-info/SOURCES.txt
+nifty_sideways_trend_option_algo.egg-info/dependency_links.txt
+nifty_sideways_trend_option_algo.egg-info/requires.txt
+nifty_sideways_trend_option_algo.egg-info/top_level.txt
+strategy/__init__.py
+strategy/algo_router_angel.py
+strategy/deployable_algo.py
+strategy/survivor.py
