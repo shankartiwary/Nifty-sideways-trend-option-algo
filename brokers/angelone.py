@@ -21,139 +21,149 @@ class AngelBroker:
         self.underlying = ""
         self.expiry = ""
         self.logger = logger or logging.getLogger(__name__)
-
+        self.instrument_map = {}
 
     def login(self):
         """
-        Logs into the broker. NOTE: The Angel One SmartAPI library uses a combination of
-        API Key, Client ID (client_code), Password, and a TOTP secret to generate a session.
-        It does not support a login flow based on receiving an OTP on a registered phone number,
-        as that is typically for manual web-based logins.
+        Logs into the broker.
         """
         if self.dry_run or SmartConnect is None:
             self.logger.info("[BROKER] DRY_RUN or SmartConnect not installed. Skipping Angel login.")
             return
         self.sc = SmartConnect(api_key=self.api_key)
-        # The backend uses the TOTP_SECRET to generate the 2FA code, not a received OTP.
         try:
             otp = pyotp.TOTP(self.totp_secret).now()
         except Exception:
-            raise ValueError("Invalid TOTP Secret. Please provide a valid Base32 key from your authenticator app setup.")
-        # The generateSession call requires the client_code and password.
+            raise ValueError("Invalid TOTP Secret. Please provide a valid Base32 key.")
+
         data = self.sc.generateSession(self.client_code, self.password, otp)
         if "data" not in data or data["data"] is None:
-            error_message = data.get('message', 'Unknown login error')
-            raise RuntimeError(f"Angel login failed: {error_message}")
+            raise RuntimeError(f"Angel login failed: {data.get('message', 'Unknown error')}")
+
         self.session = data["data"]
         self.logger.info("[BROKER] Logged in to Angel One.")
+        self._fetch_instrument_list()
+
+    def _fetch_instrument_list(self):
+        """Downloads the full list of instruments and creates a symbol-to-token map."""
+        try:
+            instrument_list = self.sc.getInstrumentList()
+            if instrument_list and instrument_list['status']:
+                for instrument in instrument_list['data']:
+                    self.instrument_map[instrument['symbol']] = instrument['token']
+                self.logger.info(f"Successfully downloaded and mapped {len(self.instrument_map)} instruments.")
+            else:
+                self.logger.error("Failed to download instrument list.")
+        except Exception as e:
+            self.logger.error(f"Error downloading instrument list: {e}")
+
+    def get_token(self, symbol: str) -> Optional[str]:
+        return self.instrument_map.get(symbol)
 
     def is_connected(self) -> bool:
-        """Checks if the broker session is active."""
-        # A simple check is to see if the session object has a feed token.
-        # A more robust check would be to make a lightweight API call.
         return self.session and 'feedtoken' in self.session
 
-    def now_hhmm(self) -> str:
-        return datetime.now().strftime("%H:%M")
-
-    @staticmethod
-    def round_to_strike(x, step=50):
-        return int(round(float(x)/step)*step)
-
-    def option_symbol(self, symbol: str, expiry_code: str, strike: int, opttype: str):
-        return f"{symbol}{expiry_code}{strike}{opttype}"
-
     def fut_ltp(self) -> float:
-        """
-        Fetches the last traded price of the underlying future.
-        In dry run mode, it simulates the price.
-        For live mode, this needs to be implemented using the broker's API.
-        """
-        if self.dry_run or self.sc is None:
-            base = 25700.0
-            t = time.time()
-            return base + 40.0 * math.sin(t / 25.0) + 10.0 * math.sin(t / 5.0)
-        # TODO: Implement the logic to fetch the live future LTP using the Angel One API
-        # Example:
-        # return self.sc.ltpData("NFO", "NIFTY24OCTFUT", "2024-10-24")['ltp']
-        raise NotImplementedError("Implement fut_ltp() with Angel getQuote/ltpData")
-
-    def best_credit_call_spread(self, shortK, longK, lots) -> Tuple[Optional[float], dict]:
-        short_sym = self.option_symbol(self.underlying, self.expiry, shortK, "CE")
-        long_sym = self.option_symbol(self.underlying, self.expiry, longK, "CE")
-        short_ltp = self._get_option_ltp(short_sym)
-        long_ltp = self._get_option_ltp(long_sym)
-        if short_ltp is None or long_ltp is None: return (None, {})
-        credit = max(0.05, short_ltp - long_ltp)
-        return credit, {"short": short_ltp, "long": long_ltp}
-
-    def best_credit_put_spread(self, shortK, longK, lots) -> Tuple[Optional[float], dict]:
-        short_sym = self.option_symbol(self.underlying, self.expiry, shortK, "PE")
-        long_sym = self.option_symbol(self.underlying, self.expiry, longK, "PE")
-        short_ltp = self._get_option_ltp(short_sym)
-        long_ltp = self._get_option_ltp(long_sym)
-        if short_ltp is None or long_ltp is None: return (None, {})
-        credit = max(0.05, short_ltp - long_ltp)
-        return credit, {"short": short_ltp, "long": long_ltp}
-
-    def _get_option_ltp(self, symbol):
-        """
-        Fetches the last traded price of a given option symbol.
-        In dry run mode, it simulates the price.
-        For live mode, this needs to be implemented using the broker's API.
-        """
         if self.dry_run:
-            # crude synthetic LTP for demo
-            digits = "".join([ch for ch in symbol if ch.isdigit()])
-            strike = int(digits[-5:]) if len(digits) >= 5 else 25000
+            # Simulation logic
+            return 25700.0 + 40.0 * math.sin(time.time() / 25.0) + 10.0 * math.sin(time.time() / 5.0)
+
+        # --- IMPORTANT: TODO ---
+        # You must find the correct symbol for the NIFTY future you want to trade.
+        # It will be something like 'NIFTY24OCTFUT'.
+        future_symbol = f"NIFTY{self.expiry}FUT" # Adjust format if needed
+        future_token = self.get_token(future_symbol)
+
+        if not future_token:
+            self.logger.error(f"Could not find token for future symbol: {future_symbol}")
+            return 0.0
+
+        try:
+            quote = self.sc.ltpData("NFO", future_symbol, future_token)
+            if quote.get('data') and 'ltp' in quote['data']:
+                return quote['data']['ltp']
+            else:
+                self.logger.error(f"Could not fetch LTP for future: {quote}")
+                return 0.0
+        except Exception as e:
+            self.logger.error(f"Exception while fetching future LTP: {e}")
+            return 0.0
+
+    def _get_option_ltp(self, symbol: str) -> Optional[float]:
+        if self.dry_run:
             S = self.fut_ltp()
-            m = abs(S - strike)
-            return float(max(2.0, 45.0 - 0.08 * m))
-        # TODO: Implement the logic to fetch the live option LTP using the Angel One API
-        # Example:
-        # return self.sc.ltpData("NFO", symbol, "2024-10-24")['ltp']
-        raise NotImplementedError("Implement option LTP with Angel getQuote/ltpData")
+            strike = int("".join([ch for ch in symbol if ch.isdigit()][-5:]))
+            return float(max(2.0, 45.0 - 0.08 * abs(S - strike)))
 
-    def sell_call_spread(self, shortK, longK, lots) -> Tuple[str, str]:
-        """
-        Places a sell call spread order.
-        In dry run mode, it simulates the order placement.
-        For live mode, this needs to be implemented using the broker's API.
-        """
-        short_sym = self.option_symbol(self.underlying, self.expiry, shortK, "CE")
-        long_sym = self.option_symbol(self.underlying, self.expiry, longK, "CE")
+        token = self.get_token(symbol)
+        if not token:
+            self.logger.error(f"Could not find token for option symbol: {symbol}")
+            return None
+
+        try:
+            quote = self.sc.ltpData("NFO", symbol, token)
+            if quote.get('data') and 'ltp' in quote['data']:
+                return quote['data']['ltp']
+            else:
+                self.logger.error(f"Could not fetch LTP for {symbol}: {quote}")
+                return None
+        except Exception as e:
+            self.logger.error(f"Exception while fetching option LTP for {symbol}: {e}")
+            return None
+
+    def _place_order(self, symbol: str, token: str, tx_type: str, qty: int) -> Optional[str]:
+        try:
+            params = {
+                "variety": "NORMAL", "tradingsymbol": symbol, "symboltoken": token,
+                "transactiontype": tx_type, "exchange": "NFO", "ordertype": "MARKET",
+                "producttype": "CARRYFORWARD", "duration": "DAY", "quantity": str(qty)
+            }
+            order_id = self.sc.placeOrder(params)
+            self.logger.info(f"Placed {tx_type} order for {symbol}: {order_id}")
+            return order_id
+        except Exception as e:
+            self.logger.error(f"Failed to place {tx_type} order for {symbol}: {e}")
+            return None
+
+    def sell_call_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[str], Optional[str]]:
+        short_sym = f"{self.underlying}{self.expiry}{shortK}CE"
+        long_sym = f"{self.underlying}{self.expiry}{longK}CE"
+
         if self.dry_run:
-            oid_s = f"SIM-S-C-{shortK}-{int(time.time())}"
-            oid_l = f"SIM-B-C-{longK}-{int(time.time())}"
             self.logger.info(f"[DRY] SELL CALL SPR {short_sym} / BUY {long_sym}, lots={lots}")
-            return oid_s, oid_l
-        # TODO: Implement the logic to place a live sell call spread order using the Angel One API
-        raise NotImplementedError("Implement placeOrder for call spread")
+            return f"SIM-S-C-{shortK}", f"SIM-B-C-{longK}"
 
-    def sell_put_spread(self, shortK, longK, lots) -> Tuple[str, str]:
-        """
-        Places a sell put spread order.
-        In dry run mode, it simulates the order placement.
-        For live mode, this needs to be implemented using the broker's API.
-        """
-        short_sym = self.option_symbol(self.underlying, self.expiry, shortK, "PE")
-        long_sym = self.option_symbol(self.underlying, self.expiry, longK, "PE")
+        short_token, long_token = self.get_token(short_sym), self.get_token(long_sym)
+        if not all([short_token, long_token]):
+            self.logger.error(f"Could not find tokens for call spread: {short_sym}, {long_sym}")
+            return None, None
+
+        qty = lots * 50 # Assuming NIFTY lot size
+        oid_s = self._place_order(short_sym, short_token, "SELL", qty)
+        oid_l = self._place_order(long_sym, long_token, "BUY", qty)
+        return oid_s, oid_l
+
+    def sell_put_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[str], Optional[str]]:
+        short_sym = f"{self.underlying}{self.expiry}{shortK}PE"
+        long_sym = f"{self.underlying}{self.expiry}{longK}PE"
+
         if self.dry_run:
-            oid_s = f"SIM-S-P-{shortK}-{int(time.time())}"
-            oid_l = f"SIM-B-P-{longK}-{int(time.time())}"
             self.logger.info(f"[DRY] SELL PUT SPR {short_sym} / BUY {long_sym}, lots={lots}")
-            return oid_s, oid_l
-        # TODO: Implement the logic to place a live sell put spread order using the Angel One API
-        raise NotImplementedError("Implement placeOrder for put spread")
+            return f"SIM-S-P-{shortK}", f"SIM-B-P-{longK}"
+
+        short_token, long_token = self.get_token(short_sym), self.get_token(long_sym)
+        if not all([short_token, long_token]):
+            self.logger.error(f"Could not find tokens for put spread: {short_sym}, {long_sym}")
+            return None, None
+
+        qty = lots * 50
+        oid_s = self._place_order(short_sym, short_token, "SELL", qty)
+        oid_l = self._place_order(long_sym, long_token, "BUY", qty)
+        return oid_s, oid_l
 
     def close_spread(self, oid_short: str, oid_long: str):
-        """
-        Closes a spread given the order IDs of the short and long legs.
-        In dry run mode, it simulates the closing of the spread.
-        For live mode, this needs to be implemented using the broker's API.
-        """
         if self.dry_run:
             self.logger.info(f"[DRY] CLOSE SPREAD short={oid_short} long={oid_long}")
             return
-        # TODO: Implement the logic to close a live spread using the Angel One API
-        raise NotImplementedError("Implement closing spread via reverse orders")
+        # TODO: Implement order cancellation or reverse trades
+        self.logger.warning("Live spread closing is not fully implemented.")
