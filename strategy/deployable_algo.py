@@ -339,9 +339,10 @@ class BarBuilder:
 
 
 class TradingBot:
-    def __init__(self, config, logger):
+    def __init__(self, config, logger, status_queue=None):
         self.config = config
         self.logger = logger
+        self.status_queue = status_queue
         self._is_running = False
         self._thread = None
         self.broker = None
@@ -389,6 +390,9 @@ class TradingBot:
                 logger=self.logger
             )
             self.broker.login()
+            if self.broker.is_connected() and self.status_queue:
+                self.status_queue.put("CONNECTED")
+
             self.broker.underlying = self.config['UNDERLYING']
             self.broker.expiry = self.config['EXPIRY']
 

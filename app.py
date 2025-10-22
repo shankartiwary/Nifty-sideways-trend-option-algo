@@ -61,6 +61,10 @@ if 'log_queue' not in st.session_state:
     st.session_state.log_queue = queue.Queue()
 if 'logger' not in st.session_state:
     st.session_state.logger = StreamlitLogger(st.session_state.log_queue)
+if 'status_queue' not in st.session_state:
+    st.session_state.status_queue = queue.Queue()
+if 'is_connected' not in st.session_state:
+    st.session_state.is_connected = False
 
 
 # --- Sidebar for Configuration ---
@@ -119,7 +123,8 @@ if col1.button("Start Bot"):
             'LTP_POLL_SEC': 1.0,
             'BAR_SECONDS': 60
         }
-        st.session_state.bot = TradingBot(bot_config, st.session_state.logger)
+        st.session_state.is_connected = False # Reset on start
+        st.session_state.bot = TradingBot(bot_config, st.session_state.logger, st.session_state.status_queue)
         st.session_state.bot.start()
         st.success("Bot started successfully!")
     else:
@@ -134,7 +139,7 @@ if col2.button("Stop Bot"):
         st.warning("Bot is not running.")
 
 if col3.button("Fire Test Order"):
-    if st.session_state.bot and st.session_state.bot.is_connected:
+    if st.session_state.bot and st.session_state.is_connected:
         st.session_state.bot.fire_test_order()
         st.success("Test order fired. Check the trade history below for the result.")
     else:
@@ -154,9 +159,15 @@ log_messages = []
 while not st.session_state.log_queue.empty():
     log_messages.insert(0, st.session_state.log_queue.get())
 
+# Check for connection status update from the bot thread
+if not st.session_state.status_queue.empty():
+    message = st.session_state.status_queue.get()
+    if message == "CONNECTED":
+        st.session_state.is_connected = True
+
 if st.session_state.bot and st.session_state.bot._is_running:
     status_placeholder.success("Bot is RUNNING.")
-    if st.session_state.bot.is_connected:
+    if st.session_state.is_connected:
         status_indicator.markdown('<span style="color:green">●</span> Connected to Broker', unsafe_allow_html=True)
         funds = st.session_state.bot.get_funds()
         if funds:

@@ -65,7 +65,7 @@ class AngelBroker:
         return self.instrument_map.get(symbol)
 
     def is_connected(self) -> bool:
-        return self.session and 'feedtoken' in self.session
+        return self.session and 'feedToken' in self.session
 
     def get_funds(self) -> Optional[Dict[str, float]]:
         """Fetches available and used margin from the broker."""
