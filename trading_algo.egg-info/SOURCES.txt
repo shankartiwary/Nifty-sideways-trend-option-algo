@@ -1,0 +1,12 @@
+README.md
+pyproject.toml
+brokers/angelone.py
+brokers/base.py
+strategy/algo_router_angel.py
+strategy/deployable_algo.py
+strategy/survivor.py
+trading_algo.egg-info/PKG-INFO
+trading_algo.egg-info/SOURCES.txt
+trading_algo.egg-info/dependency_links.txt
+trading_algo.egg-info/requires.txt
+trading_algo.egg-info/top_level.txt
