@@ -17,18 +17,19 @@ class StreamlitLogger:
     def __init__(self, queue):
         self.log_queue = queue
         self.logger = logging.getLogger('TradingBotLogger')
-        self.logger.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        if not self.logger.handlers:
+            self.logger.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-        # Add queue handler to send logs to Streamlit UI
-        queue_handler = QueueLogHandler(self.log_queue)
-        queue_handler.setFormatter(formatter)
-        self.logger.addHandler(queue_handler)
+            # Add queue handler to send logs to Streamlit UI
+            queue_handler = QueueLogHandler(self.log_queue)
+            queue_handler.setFormatter(formatter)
+            self.logger.addHandler(queue_handler)
 
-        # Add console handler to also print logs to console
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        self.logger.addHandler(console_handler)
+            # Add console handler to also print logs to console
+            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler.setFormatter(formatter)
+            self.logger.addHandler(console_handler)
 
     def info(self, msg):
         self.logger.info(msg)

@@ -47,13 +47,20 @@ class AngelBroker:
     def _fetch_instrument_list(self):
         """Downloads the full list of instruments and creates a symbol-to-token map."""
         try:
-            instrument_list = self.sc.getInstrumentList()
-            if instrument_list and instrument_list['status']:
-                for instrument in instrument_list['data']:
-                    self.instrument_map[instrument['symbol']] = instrument['token']
-                self.logger.info(f"Successfully downloaded and mapped {len(self.instrument_map)} instruments.")
+            # The modern method is to get a URL and download the instrument list as a JSON file.
+            instrument_url = self.sc.getInstrumentsList()
+            if instrument_url:
+                import requests
+                response = requests.get(instrument_url)
+                if response.status_code == 200:
+                    instrument_list = response.json()
+                    for instrument in instrument_list:
+                        self.instrument_map[instrument['symbol']] = instrument['token']
+                    self.logger.info(f"Successfully downloaded and mapped {len(self.instrument_map)} instruments.")
+                else:
+                    self.logger.error(f"Failed to download instrument list. Status code: {response.status_code}")
             else:
-                self.logger.error("Failed to download instrument list.")
+                self.logger.error("Failed to get instrument list URL.")
         except Exception as e:
             self.logger.error(f"Error downloading instrument list: {e}")
 
@@ -62,6 +69,9 @@ class AngelBroker:
 
     def is_connected(self) -> bool:
         return self.session and 'feedtoken' in self.session
+
+    def now_hhmm(self) -> str:
+        return datetime.now().strftime("%H:%M")
 
     def fut_ltp(self) -> float:
         if self.dry_run:
