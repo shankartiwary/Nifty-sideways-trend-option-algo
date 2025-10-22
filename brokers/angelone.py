@@ -45,7 +45,7 @@ class AngelBroker:
         self._fetch_instrument_list()
 
     def _fetch_instrument_list(self):
-        """Downloads the full list of instruments from a static URL and creates a symbol-to-token map."""
+        """Downloads the full list of instruments from a static URL and creates a symbol-to-instrument map."""
         try:
             instrument_url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
             import requests
@@ -53,16 +53,20 @@ class AngelBroker:
             if response.status_code == 200:
                 instrument_list = response.json()
                 for instrument in instrument_list:
-                    if 'symbol' in instrument and 'token' in instrument:
-                        self.instrument_map[instrument['symbol']] = instrument['token']
+                    if 'symbol' in instrument:
+                        self.instrument_map[instrument['symbol']] = instrument
                 self.logger.info(f"Successfully downloaded and mapped {len(self.instrument_map)} instruments.")
             else:
                 self.logger.error(f"Failed to download instrument list. Status code: {response.status_code}")
         except Exception as e:
             self.logger.error(f"Error downloading instrument list: {e}")
 
-    def get_token(self, symbol: str) -> Optional[str]:
+    def get_instrument_details(self, symbol: str) -> Optional[dict]:
         return self.instrument_map.get(symbol)
+
+    def get_token(self, symbol: str) -> Optional[str]:
+        instrument = self.get_instrument_details(symbol)
+        return instrument.get('token') if instrument else None
 
     def is_connected(self) -> bool:
         return self.session and 'feedToken' in self.session
@@ -181,13 +185,20 @@ class AngelBroker:
             self.logger.info(f"[DRY] SELL CALL SPR {short_sym} / BUY {long_sym}, lots={lots}")
             return f"SIM-S-C-{shortK}", "Dry Run", f"SIM-B-C-{longK}", "Dry Run"
 
-        short_token, long_token = self.get_token(short_sym), self.get_token(long_sym)
-        if not all([short_token, long_token]):
-            msg = f"Could not find tokens for call spread: {short_sym}, {long_sym}"
+        short_instrument = self.get_instrument_details(short_sym)
+        long_instrument = self.get_instrument_details(long_sym)
+
+        if not all([short_instrument, long_instrument]):
+            msg = f"Could not find instrument details for call spread: {short_sym}, {long_sym}"
             self.logger.error(msg)
             return None, msg, None, msg
 
-        qty = lots * 50 # Assuming NIFTY lot size
+        lot_size = int(short_instrument.get('lotSize', 25)) # Default to 25 if not found
+        qty = lots * lot_size
+
+        short_token = short_instrument['token']
+        long_token = long_instrument['token']
+
         oid_s, msg_s = self._place_order(short_sym, short_token, "SELL", qty)
         oid_l, msg_l = self._place_order(long_sym, long_token, "BUY", qty)
         return oid_s, msg_s, oid_l, msg_l
@@ -200,13 +211,20 @@ class AngelBroker:
             self.logger.info(f"[DRY] SELL PUT SPR {short_sym} / BUY {long_sym}, lots={lots}")
             return f"SIM-S-P-{shortK}", "Dry Run", f"SIM-B-P-{longK}", "Dry Run"
 
-        short_token, long_token = self.get_token(short_sym), self.get_token(long_sym)
-        if not all([short_token, long_token]):
-            msg = f"Could not find tokens for put spread: {short_sym}, {long_sym}"
+        short_instrument = self.get_instrument_details(short_sym)
+        long_instrument = self.get_instrument_details(long_sym)
+
+        if not all([short_instrument, long_instrument]):
+            msg = f"Could not find instrument details for put spread: {short_sym}, {long_sym}"
             self.logger.error(msg)
             return None, msg, None, msg
 
-        qty = lots * 50
+        lot_size = int(short_instrument.get('lotSize', 25)) # Default to 25
+        qty = lots * lot_size
+
+        short_token = short_instrument['token']
+        long_token = long_instrument['token']
+
         oid_s, msg_s = self._place_order(short_sym, short_token, "SELL", qty)
         oid_l, msg_l = self._place_order(long_sym, long_token, "BUY", qty)
         return oid_s, msg_s, oid_l, msg_l
