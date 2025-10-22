@@ -77,7 +77,7 @@ class AngelBroker:
             return None
 
         try:
-            rms_data = self.sc.get_rms_limit()
+            rms_data = self.sc.getRMS()
             if rms_data and rms_data.get('status') and rms_data.get('data'):
                 # Extracting relevant margin details. Adjust keys if necessary based on API response.
                 available_margin = float(rms_data['data'].get('availablecash', 0))
@@ -154,7 +154,12 @@ class AngelBroker:
             }
             response = self.sc.placeOrder(params)
 
-            if response and response.get('status') and response.get('data', {}).get('orderid'):
+            if response is None:
+                error_message = "API returned no response"
+                self.logger.error(f"Failed to place {tx_type} order for {symbol}. Reason: {error_message}")
+                return None, error_message
+
+            if response.get('status') and response.get('data', {}).get('orderid'):
                 order_id = response['data']['orderid']
                 self.logger.info(f"Placed {tx_type} order for {symbol}: {order_id}")
                 return order_id, "Success"
