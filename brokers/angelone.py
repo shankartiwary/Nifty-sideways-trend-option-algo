@@ -35,7 +35,10 @@ class AngelBroker:
             return
         self.sc = SmartConnect(api_key=self.api_key)
         # The backend uses the TOTP_SECRET to generate the 2FA code, not a received OTP.
-        otp = pyotp.TOTP(self.totp_secret).now()
+        try:
+            otp = pyotp.TOTP(self.totp_secret).now()
+        except Exception:
+            raise ValueError("Invalid TOTP Secret. Please provide a valid Base32 key from your authenticator app setup.")
         # The generateSession call requires the client_code and password.
         data = self.sc.generateSession(self.client_code, self.password, otp)
         if "data" not in data or data["data"] is None:

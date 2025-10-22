@@ -64,7 +64,11 @@ with st.sidebar:
         api_key = st.text_input("API Key", "YOUR_API_KEY")
         client_code = st.text_input("Client Code", "YOUR_CLIENT_CODE")
         password = st.text_input("Password", "YOUR_PASSWORD", type="password")
-        totp_secret = st.text_input("TOTP Secret", "YOUR_TOTP_SECRET")
+        totp_secret = st.text_input(
+            "TOTP Secret",
+            "YOUR_TOTP_SECRET",
+            help="This is the Base32 secret key provided by Angel One when you set up 2FA with an authenticator app (like Google Authenticator)."
+        )
 
     with st.expander("Trading Parameters", expanded=True):
         underlying = st.text_input("Underlying", "NIFTY")
