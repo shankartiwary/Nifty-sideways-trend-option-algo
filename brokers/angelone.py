@@ -77,7 +77,7 @@ class AngelBroker:
             return None
 
         try:
-            rms_data = self.sc.getRMS()
+            rms_data = self.sc.rmsLimit()
             if rms_data and rms_data.get('status') and rms_data.get('data'):
                 # Extracting relevant margin details. Adjust keys if necessary based on API response.
                 available_margin = float(rms_data['data'].get('availablecash', 0))
