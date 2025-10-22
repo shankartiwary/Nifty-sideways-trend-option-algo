@@ -48,7 +48,7 @@ class AngelBroker:
         """Downloads the full list of instruments and creates a symbol-to-token map."""
         try:
             # The modern method is to get a URL and download the instrument list as a JSON file.
-            instrument_url = self.sc.getInstrumentsList()
+            instrument_url = self.sc.get_instrument_list()
             if instrument_url:
                 import requests
                 response = requests.get(instrument_url)
