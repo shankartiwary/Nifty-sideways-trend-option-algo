@@ -318,6 +318,10 @@ class TradingBot:
         self.broker = None
         self.router = None
 
+    @property
+    def is_connected(self) -> bool:
+        return self.broker is not None and self.broker.is_connected()
+
     def _run_loop(self):
         try:
             self.broker = AngelBroker(

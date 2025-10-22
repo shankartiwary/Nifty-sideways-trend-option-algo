@@ -24,16 +24,31 @@ class AngelBroker:
 
 
     def login(self):
+        """
+        Logs into the broker. NOTE: The Angel One SmartAPI library uses a combination of
+        API Key, Client ID (client_code), Password, and a TOTP secret to generate a session.
+        It does not support a login flow based on receiving an OTP on a registered phone number,
+        as that is typically for manual web-based logins.
+        """
         if self.dry_run or SmartConnect is None:
             self.logger.info("[BROKER] DRY_RUN or SmartConnect not installed. Skipping Angel login.")
             return
         self.sc = SmartConnect(api_key=self.api_key)
+        # The backend uses the TOTP_SECRET to generate the 2FA code, not a received OTP.
         otp = pyotp.TOTP(self.totp_secret).now()
+        # The generateSession call requires the client_code and password.
         data = self.sc.generateSession(self.client_code, self.password, otp)
-        if "data" not in data:
-            raise RuntimeError(f"Angel login failed: {data}")
+        if "data" not in data or data["data"] is None:
+            error_message = data.get('message', 'Unknown login error')
+            raise RuntimeError(f"Angel login failed: {error_message}")
         self.session = data["data"]
         self.logger.info("[BROKER] Logged in to Angel One.")
+
+    def is_connected(self) -> bool:
+        """Checks if the broker session is active."""
+        # A simple check is to see if the session object has a feed token.
+        # A more robust check would be to make a lightweight API call.
+        return self.session and 'feedtoken' in self.session
 
     def now_hhmm(self) -> str:
         return datetime.now().strftime("%H:%M")

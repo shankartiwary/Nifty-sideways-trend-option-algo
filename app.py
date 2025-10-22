@@ -44,6 +44,9 @@ class StreamlitLogger:
 st.set_page_config(layout="wide")
 st.title("Trading Bot Controller")
 
+# --- Connection Status Indicator ---
+status_indicator = st.empty()
+
 # --- Session State Initialization ---
 if 'bot' not in st.session_state:
     st.session_state.bot = None
@@ -128,8 +131,14 @@ while not st.session_state.log_queue.empty():
 
 if st.session_state.bot and st.session_state.bot._is_running:
     status_placeholder.success("Bot is RUNNING.")
+    if st.session_state.bot.is_connected:
+        status_indicator.markdown('<span style="color:green">●</span> Connected to Broker', unsafe_allow_html=True)
+    else:
+        status_indicator.markdown('<span style="color:red">●</span> Disconnected from Broker', unsafe_allow_html=True)
 else:
     status_placeholder.warning("Bot is STOPPED.")
+    status_indicator.markdown('<span style="color:red">●</span> Disconnected from Broker', unsafe_allow_html=True)
+
 
 import time
 
