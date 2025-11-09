@@ -19,9 +19,5 @@ dependencies = [
 ]
 
 [tool.setuptools]
-# (optional) include non-Python files via MANIFEST.in if you need
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["brokers*", "strategy*"]
-exclude = ["tests*", "docs*"]
+py_modules = ["dispatcher", "logger", "orders"]
+packages = ["brokers", "strategy"]
