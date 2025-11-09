@@ -1,5 +1,5 @@
 import streamlit as st
-from strategy.deployable_algo import TradingBot, WaveCfg, SurvivorCfg
+from strategy.deployable_algo import TradingBot, SurvivorCfg
 import queue
 import logging
 import sys
@@ -89,14 +89,6 @@ with st.sidebar:
         expiry = st.text_input("Expiry (e.g., 24OCT24)", "24OCT24")
         dry_run = st.checkbox("Dry Run (Paper Trading)", True)
 
-    with st.expander("Wave Extractor Config"):
-        wave_cfg_params = {
-            'step_pts': st.number_input("Wave: Step Pts", value=50),
-            'spread_wing': st.number_input("Wave: Spread Wing", value=100),
-            'min_credit': st.number_input("Wave: Min Credit", value=8.0),
-            'lot_qty': st.number_input("Wave: Lot Qty", value=1)
-        }
-
     with st.expander("Survivor Config"):
         survivor_cfg_params = {
             'pe_gap': st.number_input("Survivor: PE Gap", value=100),
@@ -119,10 +111,8 @@ if col1.button("Start Bot"):
             'DRY_RUN': dry_run,
             'UNDERLYING': underlying,
             'EXPIRY': expiry,
-            'WAVE_CFG': wave_cfg_params,
             'SURVIVOR_CFG': survivor_cfg_params,
-            'LTP_POLL_SEC': 1.0,
-            'BAR_SECONDS': 60
+            'LTP_POLL_SEC': 1.0
         }
         st.session_state.is_connected = False # Reset on start
         st.session_state.bot = TradingBot(bot_config, st.session_state.logger, st.session_state.status_queue)

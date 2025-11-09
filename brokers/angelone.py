@@ -263,3 +263,29 @@ class AngelBroker:
         except Exception as e:
             self.logger.error(f"Exception while fetching order book: {e}")
             return None
+
+    def best_credit_call_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[float], Optional[str]]:
+        short_sym = f"{self.underlying}{self.expiry}{shortK}CE"
+        long_sym = f"{self.underlying}{self.expiry}{longK}CE"
+
+        p_short = self._get_option_ltp(short_sym)
+        p_long = self._get_option_ltp(long_sym)
+
+        if p_short is not None and p_long is not None:
+            credit = p_short - p_long
+            return credit, f"Credit: {credit:.2f}"
+        else:
+            return None, "Could not fetch LTP for one or both legs."
+
+    def best_credit_put_spread(self, shortK: int, longK: int, lots: int) -> Tuple[Optional[float], Optional[str]]:
+        short_sym = f"{self.underlying}{self.expiry}{shortK}PE"
+        long_sym = f"{self.underlying}{self.expiry}{longK}PE"
+
+        p_short = self._get_option_ltp(short_sym)
+        p_long = self._get_option_ltp(long_sym)
+
+        if p_short is not None and p_long is not None:
+            credit = p_short - p_long
+            return credit, f"Credit: {credit:.2f}"
+        else:
+            return None, "Could not fetch LTP for one or both legs."
