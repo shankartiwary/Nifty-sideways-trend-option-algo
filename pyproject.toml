@@ -19,5 +19,5 @@ dependencies = [
 ]
 
 [tool.setuptools]
-py_modules = ["dispatcher", "logger", "orders"]
+py_modules = ["app", "dispatcher", "logger", "orders"]
 packages = ["brokers", "strategy"]
